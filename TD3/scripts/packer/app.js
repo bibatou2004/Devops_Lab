@@ -1,14 +1,14 @@
 const http = require('http');
+const os = require('os');
 
-const hostname = '0.0.0.0';
-const port = 8080;
+const hostname = os.hostname();
+const version = process.env.APP_VERSION || '1.0';
 
 const server = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/plain');
-  res.end('Hello, World! From EC2 via Packer AMI\n');
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end(`Hello, World! (v${version}) - Host: ${hostname}\n`);
 });
 
-server.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
+server.listen(8080, () => {
+  console.log('Application listening on port 8080');
 });
