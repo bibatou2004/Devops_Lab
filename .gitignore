@@ -1,0 +1,26 @@
+# Clés SSH
+*.key
+*.pem
+sample-ap.pem
+
+# Fichiers Ansible
+*.retry
+.ansible/
+
+# Fichiers temporaires
+.DS_Store
+*.swp
+*~
+
+# Fichiers de configuration sensibles
+ansible.cfg.local
+group_vars/*/vault.yml
+
+# Logs
+*.log
+nohup.out
+
+# Répertoires
+__pycache__/
+.pytest_cache/
+venv/
