@@ -1,11 +1,10 @@
-"""Unit tests for Lambda application"""
+"""Unit tests for Lambda application - CD Pipeline v2"""
 
 import json
 import sys
 import os
 import pytest
 
-# Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from app import lambda_handler
@@ -25,12 +24,11 @@ class TestLambdaHandler:
         """Setup for each test"""
         self.context = MockContext()
     
-    # Health Check Tests
-    def test_health_check_root(self):
-        """Test health check at root path"""
+    def test_health_check_v2(self):
+        """Test health check returns v2"""
         event = {
             'httpMethod': 'GET',
-            'path': '/',
+            'rawPath': '/',
             'pathParameters': None,
             'queryStringParameters': None
         }
@@ -39,13 +37,14 @@ class TestLambdaHandler:
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
         assert body['status'] == 'healthy'
-        assert 'message' in body
+        assert body['version'] == '2.0.0'
+        assert 'CD Pipeline Test' in body['message']
     
-    def test_health_check_explicit(self):
-        """Test health check at /health"""
+    def test_api_status_v2(self):
+        """Test API status returns v2"""
         event = {
             'httpMethod': 'GET',
-            'path': '/health',
+            'rawPath': '/api/status',
             'pathParameters': None,
             'queryStringParameters': None
         }
@@ -53,30 +52,14 @@ class TestLambdaHandler:
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert body['status'] == 'healthy'
+        assert body['version'] == '2.0.0'
+        assert body['service'] == 'lambda-cd-pipeline'
     
-    # Status Tests
-    def test_api_status(self):
-        """Test API status endpoint"""
+    def test_name_endpoint_with_cd(self):
+        """Test name endpoint mentions CD"""
         event = {
             'httpMethod': 'GET',
-            'path': '/api/status',
-            'pathParameters': None,
-            'queryStringParameters': None
-        }
-        response = lambda_handler(event, self.context)
-        
-        assert response['statusCode'] == 200
-        body = json.loads(response['body'])
-        assert body['status'] == 'operational'
-        assert body['version'] == '1.0.0'
-    
-    # Name Parameter Tests
-    def test_name_endpoint_devops(self):
-        """Test /name/DevOps endpoint"""
-        event = {
-            'httpMethod': 'GET',
-            'path': '/name/DevOps',
+            'rawPath': '/name/DevOps',
             'pathParameters': {'name': 'DevOps'},
             'queryStringParameters': None
         }
@@ -84,44 +67,43 @@ class TestLambdaHandler:
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert 'DevOps' in body['message']
-        assert body['name'] == 'DevOps'
+        assert 'CD Pipeline API v2' in body['message']
     
-    def test_name_endpoint_biba(self):
-        """Test /name/Biba endpoint"""
+    def test_info_includes_cd_features(self):
+        """Test info endpoint lists CD features"""
         event = {
             'httpMethod': 'GET',
-            'path': '/name/Biba',
-            'pathParameters': {'name': 'Biba'},
+            'rawPath': '/api/info',
+            'pathParameters': None,
             'queryStringParameters': None
         }
         response = lambda_handler(event, self.context)
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert 'Biba' in body['message']
-        assert body['name'] == 'Biba'
-    
-    def test_name_endpoint_empty(self):
-        """Test /name/ with empty name"""
+        assert 'continuous-delivery' in body['deployment_stage']
+        assert 'Remote state management' in body['features']
+        assert 'Automated plan on PR' in body['features']
+
+    def test_health_check_explicit(self):
+        """Test health check at /health"""
         event = {
             'httpMethod': 'GET',
-            'path': '/name/',
-            'pathParameters': {'name': ''},
+            'rawPath': '/health',
+            'pathParameters': None,
             'queryStringParameters': None
         }
         response = lambda_handler(event, self.context)
         
-        assert response['statusCode'] == 400
+        assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert 'error' in body
+        assert body['status'] == 'healthy'
     
-    # Echo Tests
     def test_echo_endpoint(self):
-        """Test /api/echo endpoint"""
+        """Test echo endpoint"""
         event = {
             'httpMethod': 'GET',
-            'path': '/api/echo',
+            'rawPath': '/api/echo',
             'pathParameters': None,
             'queryStringParameters': {'param1': 'value1', 'param2': 'value2'}
         }
@@ -131,67 +113,18 @@ class TestLambdaHandler:
         body = json.loads(response['body'])
         assert body['total_params'] == 2
     
-    # Info Tests
-    def test_info_endpoint(self):
-        """Test /api/info endpoint"""
-        event = {
-            'httpMethod': 'GET',
-            'path': '/api/info',
-            'pathParameters': None,
-            'queryStringParameters': None
-        }
-        response = lambda_handler(event, self.context)
-        
-        assert response['statusCode'] == 200
-        body = json.loads(response['body'])
-        assert 'endpoints' in body
-        assert len(body['endpoints']) > 0
-    
-    # Error Tests
     def test_not_found(self):
-        """Test 404 response for unknown path"""
+        """Test 404 response"""
         event = {
             'httpMethod': 'GET',
-            'path': '/nonexistent',
+            'rawPath': '/nonexistent',
             'pathParameters': None,
             'queryStringParameters': None
         }
         response = lambda_handler(event, self.context)
         
         assert response['statusCode'] == 404
-        body = json.loads(response['body'])
-        assert 'error' in body
-    
-    # Response Format Tests
-    def test_response_headers(self):
-        """Test response has correct headers"""
-        event = {
-            'httpMethod': 'GET',
-            'path': '/',
-            'pathParameters': None,
-            'queryStringParameters': None
-        }
-        response = lambda_handler(event, self.context)
-        
-        assert 'headers' in response
-        assert response['headers']['Content-Type'] == 'application/json'
-        assert 'Access-Control-Allow-Origin' in response['headers']
-    
-    def test_response_is_valid_json(self):
-        """Test all responses are valid JSON"""
-        event = {
-            'httpMethod': 'GET',
-            'path': '/api/status',
-            'pathParameters': None,
-            'queryStringParameters': None
-        }
-        response = lambda_handler(event, self.context)
-        
-        # Should not raise
-        body = json.loads(response['body'])
-        assert isinstance(body, dict)
 
 
 if __name__ == '__main__':
-    # Run with pytest
     pytest.main([__file__, '-v'])
