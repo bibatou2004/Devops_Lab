@@ -1,0 +1,50 @@
+name: Tofu Plan
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "TD5/scripts/tofu/live/ci-cd-permissions/**"
+      - ".github/workflows/tofu-plan.yml"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  plan:
+    name: "Tofu Plan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN_PLAN }}
+          role-session-name: plan-${{ github.run_number }}-${{ github.actor }}
+          aws-region: us-east-2
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: Tofu Plan
+        id: plan
+        working-directory: TD5/scripts/tofu/live/ci-cd-permissions
+        run: |
+          tofu init -no-color -input=false
+          tofu plan -no-color -input=false -lock=false
+
+      - name: Post plan comment
+        if: always()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## ✅ `tofu plan` output
+            ```
+            ${{ steps.plan.outputs.stdout }}
+            ```
