@@ -1,99 +1,59 @@
-"""
-Lambda application for API Gateway integration
-Supports multiple endpoints with path and query parameters
-"""
-
 import json
-import logging
-from typing import Dict, Any, Optional
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
+from typing import Dict, Any
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Handle API Gateway requests.
-    
-    Args:
-        event: API Gateway event with path, method, parameters
-        context: Lambda context
-        
-    Returns:
-        API Gateway response (statusCode, headers, body)
+    Lambda handler for API Gateway HTTP API
     """
-    logger.info(f"Received event: {json.dumps(event)}")
+    path = event.get('rawPath', '/')
+    method = event.get('requestContext', {}).get('http', {}).get('method', 'GET')
+    query_params = event.get('queryStringParameters') or {}
     
-    try:
-        # Extract request information
-        http_method = event.get('httpMethod', 'GET')
-        path = event.get('path', '/')
-        path_params = event.get('pathParameters') or {}
-        query_params = event.get('queryStringParameters') or {}
-        
-        logger.info(f"Method: {http_method}, Path: {path}, PathParams: {path_params}")
-        
-        # Route handlers
-        if path == '/' or path == '/health':
-            return handle_health(event, context)
-        
-        elif path == '/api/status':
-            return handle_status(event, context)
-        
-        elif path.startswith('/name/'):
-            # Extract name from path
-            name = path.split('/name/')[-1]
-            return handle_name(name, event, context)
-        
-        elif path == '/api/echo':
-            # Echo back query parameters
-            return handle_echo(query_params, event, context)
-        
-        elif path == '/api/info':
-            return handle_info(event, context)
-        
-        else:
-            return error_response(404, "Endpoint not found", event)
-    
-    except Exception as e:
-        logger.error(f"Error: {str(e)}", exc_info=True)
-        return error_response(500, f"Internal Server Error: {str(e)}", event)
+    # Route handling
+    if path == '/' or path == '/health':
+        return handle_health()
+    elif path == '/api/status':
+        return handle_status()
+    elif path.startswith('/name/'):
+        name = path.split('/name/')[-1]
+        return handle_name(name)
+    elif path == '/api/echo':
+        return handle_echo(query_params, event, context)
+    elif path == '/api/info':
+        return handle_info(event, context)
+    else:
+        return error_response(404, f"Path not found: {path}", event)
 
 
-def handle_health(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Health check endpoint"""
+def handle_health() -> Dict[str, Any]:
+    """Health check endpoint - UPDATED FOR CD TESTING"""
     return success_response({
         'status': 'healthy',
-        'message': 'Lambda function is running',
-        'path': event.get('path'),
-        'timestamp': context.invoked_function_arn
+        'message': 'Lambda is running - CD Pipeline Test v2',
+        'version': '2.0.0',
+        'deployment_type': 'continuous-delivery'
     })
 
 
-def handle_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handle_status() -> Dict[str, Any]:
     """API status endpoint"""
     return success_response({
         'status': 'operational',
-        'service': 'TD5 Lambda API',
-        'version': '1.0.0',
-        'environment': 'production',
-        'request_id': context.request_id
+        'version': '2.0.0',
+        'service': 'lambda-cd-pipeline',
+        'region': 'us-east-2'
     })
 
 
-def handle_name(name: str, event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    Handle /name/:name endpoint
-    Returns a greeting with the provided name
-    """
+def handle_name(name: str) -> Dict[str, Any]:
+    """Greeting endpoint with name parameter"""
     if not name or name.strip() == '':
-        return error_response(400, "Name parameter is required", event)
+        return error_response(400, "Name parameter is required", {})
     
     return success_response({
-        'message': f'Hello, {name}!',
+        'message': f'Hello {name}! Welcome to the CD Pipeline API v2',
         'name': name,
-        'path': event.get('path'),
-        'greeting': f'Welcome to TD5, {name}! This is your Lambda API.'
+        'feature': 'continuous-delivery'
     })
 
 
@@ -101,7 +61,7 @@ def handle_echo(query_params: Dict[str, Any], event: Dict[str, Any],
                 context: Any) -> Dict[str, Any]:
     """Echo back query parameters"""
     return success_response({
-        'message': 'Echo service',
+        'message': 'Echo service - CD Pipeline v2',
         'query_parameters': query_params,
         'total_params': len(query_params)
     })
@@ -110,8 +70,9 @@ def handle_echo(query_params: Dict[str, Any], event: Dict[str, Any],
 def handle_info(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Application information endpoint"""
     return success_response({
-        'application': 'TD5 Sample Lambda',
-        'version': '1.0.0',
+        'application': 'TD5 CD Pipeline Lambda',
+        'version': '2.0.0',
+        'deployment_stage': 'continuous-delivery',
         'endpoints': [
             '/ or /health - Health check',
             '/api/status - API status',
@@ -120,7 +81,13 @@ def handle_info(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             '/api/info - This endpoint'
         ],
         'author': 'DevOps Team',
-        'created': '2024'
+        'created': '2024',
+        'features': [
+            'Remote state management',
+            'Automated plan on PR',
+            'Automated apply on merge',
+            'State locking with DynamoDB'
+        ]
     })
 
 
