@@ -1,0 +1,60 @@
+name: Infrastructure Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'TD5/scripts/tofu/**'
+      - '.github/workflows/infra-tests.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'TD5/scripts/tofu/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+      
+      - name: Terraform Format Check
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform fmt -check -recursive ../../
+      
+      - name: Terraform Init
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform init -backend=false
+      
+      - name: Terraform Validate
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform validate
+
+  tflint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v3
+      
+      - name: Init TFLint
+        run: tflint --init
+      
+      - name: Run TFLint
+        run: |
+          tflint --format compact TD5/scripts/tofu/
+

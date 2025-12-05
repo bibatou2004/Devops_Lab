@@ -1,0 +1,38 @@
+name: Terraform Destroy (Manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN_APPLY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+      
+      - name: Terraform Init
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform init
+      
+      - name: Terraform Destroy
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform destroy -no-color -auto-approve
+
