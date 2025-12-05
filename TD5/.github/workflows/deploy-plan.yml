@@ -1,0 +1,49 @@
+name: Deploy Plan
+
+on:
+  pull_request:
+
+jobs:
+  opentofu_plan:
+    name: "OpenTofu Plan"
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN_PLAN }}
+          role-session-name: plan-${{ github.run_number }}-${{ github.actor }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+      
+      - name: OpenTofu Plan
+        id: plan
+        working-directory: TD5/scripts/tofu/live/lambda-sample
+        continue-on-error: true
+        run: |
+          tofu init
+          tofu plan -no-color -out=tfplan
+      
+      - name: Post Plan to PR
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const plan = `${{ steps.plan.outputs.stdout }}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '```\n' + plan + '\n```'
+            });
+

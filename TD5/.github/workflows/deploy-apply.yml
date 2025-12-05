@@ -1,0 +1,39 @@
+name: Deploy Apply
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  opentofu_apply:
+    name: "OpenTofu Apply"
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN_APPLY }}
+          role-session-name: apply-${{ github.run_number }}-${{ github.actor }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+      
+      - name: OpenTofu Apply
+        working-directory: TD5/scripts/tofu/live/lambda-sample
+        run: |
+          tofu init
+          tofu apply -auto-approve
+      
+      - name: Notify Deployment
+        if: success()
+        run: |
+          echo "✅ Déploiement réussi!"
+          echo "Date: $(date)"
+
