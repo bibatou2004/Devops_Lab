@@ -1,0 +1,1 @@
+{"function_name":"devops-lab-test-function","handler":"index.handler","memory_size":128,"role":"arn:aws:iam::123456789012:role/lambda-test-role","runtime":"nodejs18.x","timeout":30}
