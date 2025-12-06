@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: default
+
+resources:
+  - database/postgres-configmap.yaml
+  - database/postgres-secret.yaml
+  - database/postgres-pvc.yaml
+  - database/postgres-deployment.yaml
+  - database/postgres-service.yaml
+  - backend/backend-configmap.yaml
+  - backend/backend-secret.yaml
+  - backend/backend-deployment.yaml
+  - backend/backend-service.yaml
+  - frontend/frontend-configmap.yaml
+  - frontend/frontend-deployment.yaml
+  - frontend/frontend-service.yaml
+  - ingress.yaml
+
+commonLabels:
+  app: devops-final-project
+  version: v1.0.0
+  managed-by: kustomize
+
+commonAnnotations:
+  description: "Final DevOps Project - CI/CD Data Pipeline"
+  author: "DevOps Team"
+  date: "2025"

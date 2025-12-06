@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: default
+data:
+  POSTGRES_DB: devops_db
+  POSTGRES_USER: devops_user
+  INIT_SCRIPT: |
+    -- Create tasks table
+    CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        completed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks(title);
+    
+    INSERT INTO tasks (title, description, completed) VALUES
+    ('Learn Kubernetes', 'Master container orchestration', FALSE),
+    ('Setup CI/CD Pipeline', 'Configure GitHub Actions', FALSE),
+    ('Deploy Application', 'Deploy to production cluster', FALSE);
