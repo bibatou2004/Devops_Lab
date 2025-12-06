@@ -1,0 +1,16 @@
+{
+  "name": "sample-app-backend",
+  "version": "1.0.0",
+  "description": "Backend microservice for TD6",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "keywords": ["backend", "microservice", "kubernetes"],
+  "author": "DevOps Training",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
