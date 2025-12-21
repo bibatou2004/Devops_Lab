@@ -7,26 +7,34 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Étape 1 : Tests Unitaires (Critère Pédagogique : TDD) [cite: 15, 20, 193]
+  # Étape 1 : Tests Unitaires
   test-backend:
     runs-on: ubuntu-latest
     steps:
-      - [cite_start]uses: actions/checkout@v3 # [cite: 231]
+      - uses: actions/checkout@v3
+      
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          
       - name: Install dependencies
-        [cite_start]run: cd backend && npm install # [cite: 234]
+        run: |
+          cd backend
+          npm install
+          
       - name: Run Backend Tests
-        [cite_start]run: cd backend && npm test # [cite: 236]
+        run: |
+          cd backend
+          npm test
 
-  # Étape 2 : Build et Push des images Docker [cite: 52, 85, 87]
+  # Étape 2 : Build et Push des images Docker
   build-and-push:
-    [cite_start]needs: test-backend # Ne build que si les tests passent [cite: 199, 200]
+    needs: test-backend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
