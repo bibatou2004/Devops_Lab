@@ -15,7 +15,7 @@ spec:
       containers:
       - name: backend
         # REMPLACE PAR TON IMAGE DOCKER HUB
-        image: TON_PSEUDO/foot-backend:latest
+        image: noun25/foot-backend:latest
         env:
         - name: DATABASE_URL
           value: "postgresql://postgres:footsecret@postgres:5432/footnews"

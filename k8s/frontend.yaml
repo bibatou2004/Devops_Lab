@@ -14,7 +14,7 @@ spec:
       containers:
       - name: frontend
         # REMPLACE PAR TON IMAGE DOCKER HUB
-        image: TON_PSEUDO/foot-frontend:latest
+        image: noun25/foot-frontend:latest
         ports:
         - containerPort: 3000
 ---
