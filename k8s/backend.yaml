@@ -1,3 +1,4 @@
+# k8s/backend.yaml (CORRIGÉ)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,11 +15,31 @@ spec:
     spec:
       containers:
       - name: backend
-        # REMPLACE PAR TON IMAGE DOCKER HUB
         image: noun25/foot-backend:latest
+        imagePullPolicy: Always # Force le retéléchargement de l'image si mise à jour
         env:
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-user
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-db
+        - name: DB_HOST
+          value: "postgres" # Nom du service K8s
+        # Reconstitution de l'URL pour ton application Node (si elle attend une URL complète)
+        # Note : Il faudra peut-être adapter ton code JS pour lire ces variables séparées, 
+        # ou construire la string ici :
         - name: DATABASE_URL
-          value: "postgresql://postgres:footsecret@postgres:5432/footnews"
+          value: "postgresql://$(DB_USER):$(DB_PASS)@postgres:5432/$(DB_NAME)"
         ports:
         - containerPort: 3000
 ---
@@ -33,3 +54,4 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+      nodePort: 30001 # On fixe un port pour faciliter les tests locaux

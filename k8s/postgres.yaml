@@ -1,3 +1,4 @@
+# k8s/postgres.yaml (CORRIGÉ)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -24,11 +25,37 @@ spec:
       containers:
       - name: postgres
         image: postgres:15
+        ports:
+        - containerPort: 5432
         env:
+        # On pioche les valeurs dans le Secret créé plus haut
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-user
         - name: POSTGRES_PASSWORD
-          value: "footsecret"
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-password
         - name: POSTGRES_DB
-          value: "footnews"
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-db
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: init-script
+        configMap:
+          name: postgres-init-script
 ---
 apiVersion: v1
 kind: Service
