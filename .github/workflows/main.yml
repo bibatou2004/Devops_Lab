@@ -54,4 +54,4 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:v2

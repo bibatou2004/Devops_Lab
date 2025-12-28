@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: noun25/foot-frontend:latest
+        image: noun25/foot-frontend:v2
         imagePullPolicy: Always
         ports:
         - containerPort: 80 # Nginx écoute sur le 80
