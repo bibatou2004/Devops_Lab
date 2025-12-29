@@ -1,18 +1,17 @@
-# Étape 1 : Build de l'application React
+# Étape 1 : Build
 FROM node:18-alpine as build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-# On définit l'URL par défaut pour le build (peut être écrasé par les args)
-# Pour Minikube, on visera le NodePort du backend (voir étape suivante)
-ENV REACT_APP_API_URL=http://localhost:30001
+# CORRECTION : On utilise un chemin relatif. L'Ingress se chargera du routage.
+ENV REACT_APP_API_URL=/api
 RUN npm run build
 
-# Étape 2 : Serveur Web Nginx pour servir les fichiers statiques
+# Étape 2 : Serveur Nginx
 FROM nginx:alpine
-# Copie des fichiers buildés depuis l'étape 1 vers le dossier de Nginx
+# Ajout de la configuration personnalisée
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build /usr/share/nginx/html
-# Exposition du port 80 (port standard web)
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

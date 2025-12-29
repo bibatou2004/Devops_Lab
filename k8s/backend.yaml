@@ -1,4 +1,3 @@
-# k8s/backend.yaml (CORRIGÉ)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,7 +15,7 @@ spec:
       containers:
       - name: backend
         image: noun25/foot-backend:latest
-        imagePullPolicy: Always # Force le retéléchargement de l'image si mise à jour
+        imagePullPolicy: Always
         env:
         - name: DB_USER
           valueFrom:
@@ -33,25 +32,19 @@ spec:
             secretKeyRef:
               name: foot-secrets
               key: postgres-db
-        - name: DB_HOST
-          value: "postgres" # Nom du service K8s
-        # Reconstitution de l'URL pour ton application Node (si elle attend une URL complète)
-        # Note : Il faudra peut-être adapter ton code JS pour lire ces variables séparées, 
-        # ou construire la string ici :
         - name: DATABASE_URL
           value: "postgresql://$(DB_USER):$(DB_PASS)@postgres:5432/$(DB_NAME)"
         ports:
-        - containerPort: 5000
+        - containerPort: 5000 # Alignement avec Dockerfile
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: backend-service
 spec:
-  type: NodePort
+  type: ClusterIP # Changement : Plus besoin de NodePort
   selector:
     app: backend
   ports:
     - port: 5000
       targetPort: 5000
-      nodePort: 30001 # On fixe un port pour faciliter les tests locaux

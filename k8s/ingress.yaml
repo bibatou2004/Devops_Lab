@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: foot-ingress
+  annotations:
+    # Cette annotation est magique : elle permet de réécrire l'URL
+    # Si on tape /api/news, elle envoie /news au backend (car ton backend ne connait pas "/api")
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+  - http:
+      paths:
+      # Règle 1 : Tout ce qui commence par /api va vers le backend
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 5000
+      # Règle 2 : Tout le reste va vers le frontend
+      - path: /()(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
