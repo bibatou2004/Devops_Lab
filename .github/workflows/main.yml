@@ -50,7 +50,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-backend:latest 
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-backend:latest
 
       # Build Frontend (React)
       - name: Build and push Frontend
@@ -59,4 +59,4 @@ jobs:
           context: ./frontend
           push: true
           # J'ai passé le tag à 'latest' pour simplifier la gestion dans Kubernetes
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:v5
