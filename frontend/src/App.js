@@ -5,7 +5,7 @@ function App() {
   const [news, setNews] = useState([]);
   // 1. On ajoute un état pour savoir si ça charge vraiment
   const [loading, setLoading] = useState(true); 
-  const API_URL = 'http://localhost:5000';
+  const API_URL = '/api';
 
   useEffect(() => {
     fetch(`${API_URL}/news`)
