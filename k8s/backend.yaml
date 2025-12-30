@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: noun25/foot-backend:V5.1
+        image: noun25/foot-backend:latest
         imagePullPolicy: Always
         env:
         - name: DB_HOST
