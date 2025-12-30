@@ -1,51 +1,137 @@
-/* Ajoute ceci à la fin de App.css */
-.scoreboard {
+/* frontend/src/App.css */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+}
+
+.app-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: white;
+  box-shadow: 0 0 20px rgba(0,0,0,0.05);
+}
+
+.app-header {
   background-color: #2c3e50;
   padding: 20px;
   color: white;
+  text-align: center;
+}
+
+.app-header h1 { margin: 0; }
+
+/* --- SCOREBOARD --- */
+.scoreboard {
+  background-color: #34495e; /* Gris bleuté foncé */
+  padding: 20px;
+  color: white;
   margin-bottom: 20px;
+  border-bottom: 4px solid #e74c3c;
 }
 
 .matches-grid {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 15px;
   flex-wrap: wrap;
 }
 
 .match-card {
   background: white;
-  color: #333;
-  padding: 15px;
+  color: #2c3e50;
+  padding: 10px 15px;
   border-radius: 8px;
-  min-width: 250px;
+  min-width: 220px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: relative;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  font-weight: bold;
 }
 
 .score {
-  font-weight: bold;
-  font-size: 1.5rem;
-  background: #eee;
-  padding: 5px 15px;
-  border-radius: 5px;
+  font-size: 1.2rem;
+  background: #ecf0f1;
+  padding: 5px 10px;
+  border-radius: 4px;
+  margin: 0 10px;
 }
 
 .live-indicator {
   position: absolute;
-  top: -5px;
+  top: -8px;
   right: -5px;
-  background: red;
+  background: #e74c3c;
   color: white;
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  animation: pulse 1s infinite;
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  animation: pulse 1.5s infinite;
 }
 
+/* --- MESSAGERIE / CHAT --- */
+.news-container {
+  padding: 20px;
+}
+
+.input-section {
+  margin-bottom: 30px;
+  background: #ecf0f1;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.message-form {
+  display: flex;
+  gap: 10px;
+}
+
+.message-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.send-button {
+  padding: 10px 20px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.send-button:hover { background-color: #27ae60; }
+
+/* --- CARTES DES MESSAGES (C'est ici que ça bloquait) --- */
+.news-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.news-card {
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 15px;
+  /* On s'assure que le texte est noir */
+  color: #333333 !important; 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
+}
+
+.news-card:hover {
+  transform: translateX(5px);
+}
+
+/* Animation Live */
 @keyframes pulse {
   0% { opacity: 1; }
   50% { opacity: 0.5; }

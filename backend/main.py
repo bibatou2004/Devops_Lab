@@ -37,7 +37,10 @@ async def simulate_live_scores():
                 match = cur.fetchone()
                 if match:
                     match_id, h_score, a_score = match
-                    if random.choice([True, False]):
+                    if h_score > 5 or a_score > 5:
+                         cur.execute("UPDATE matches SET home_score = 0, away_score = 0 WHERE id = %s", (match_id,))
+                         print(f"Match {match_id} terminé et redémarré !")
+                    elif random.choice([True, False]):
                         cur.execute("UPDATE matches SET home_score = %s WHERE id = %s", (h_score + 1, match_id))
                     else:
                         cur.execute("UPDATE matches SET away_score = %s WHERE id = %s", (a_score + 1, match_id))
