@@ -2,17 +2,17 @@ import os
 import asyncio
 import random
 import psycopg2
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from textblob import TextBlob  # <--- L'outil d'analyse de sentiment
+from textblob import TextBlob
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["*"],
+    allow_methods=["*"], # Important pour autoriser DELETE
     allow_headers=["*"],
 )
 
@@ -25,7 +25,23 @@ DB_PASS = os.getenv("DB_PASS", "password")
 class Message(BaseModel):
     content: str
 
-# --- TÂCHE DE FOND (Simulation Scores) ---
+# --- SYSTEME EXPERT (DICTIONNAIRE DE SENTIMENTS) ---
+# Pour pallier aux faiblesses de TextBlob en français sur les phrases courtes
+FRENCH_SENTIMENTS = {
+    "victoire": 0.9, "gagne": 0.8, "bravo": 0.8, "super": 0.8, "goooal": 1.0, "but": 0.7, "bien": 0.6,
+    "nul": -0.8, "perdu": -0.9, "honte": -1.0, "triste": -0.7, "mauvais": -0.8, "defaite": -0.9, "ennui": -0.5
+}
+
+def analyze_sentiment(text):
+    text_lower = text.lower()
+    # 1. Approche par règles (Prioritaire)
+    for word, score in FRENCH_SENTIMENTS.items():
+        if word in text_lower:
+            return score
+    # 2. Approche IA (Fallback)
+    return TextBlob(text).sentiment.polarity
+
+# --- TÂCHE DE FOND (Simulation) ---
 async def simulate_live_scores():
     while True:
         await asyncio.sleep(10)
@@ -37,9 +53,9 @@ async def simulate_live_scores():
                 match = cur.fetchone()
                 if match:
                     match_id, h_score, a_score = match
-                    if h_score > 5 or a_score > 5:
-                         cur.execute("UPDATE matches SET home_score = 0, away_score = 0 WHERE id = %s", (match_id,))
-                         print(f"Match {match_id} terminé et redémarré !")
+                    # Reset si score trop haut (pour éviter 150-140)
+                    if h_score > 6 or a_score > 6:
+                        cur.execute("UPDATE matches SET home_score=0, away_score=0 WHERE id=%s", (match_id,))
                     elif random.choice([True, False]):
                         cur.execute("UPDATE matches SET home_score = %s WHERE id = %s", (h_score + 1, match_id))
                     else:
@@ -47,89 +63,86 @@ async def simulate_live_scores():
                     conn.commit()
                 cur.close()
                 conn.close()
-            except Exception:
-                pass
+            except: pass
 
 def get_db_connection():
     try:
         return psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
-    except:
-        return None
+    except: return None
 
 @app.on_event("startup")
 async def startup_event():
+    # ... (Code d'initialisation identique à avant, on garde la structure)
     conn = get_db_connection()
     if conn:
         cur = conn.cursor()
-        # On ajoute une colonne 'sentiment' si elle n'existe pas (Migration simple)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                content TEXT NOT NULL,
-                sentiment FLOAT DEFAULT 0.0
+                id SERIAL PRIMARY KEY, content TEXT NOT NULL, sentiment FLOAT DEFAULT 0.0
             )
         """)
-        # Si la table existait déjà sans la colonne sentiment, on l'ajoute (Patch)
+        # Patch migration si besoin
         try:
             cur.execute("ALTER TABLE messages ADD COLUMN sentiment FLOAT DEFAULT 0.0")
             conn.commit()
-        except:
-            conn.rollback() # La colonne existe déjà, on ignore
+        except: conn.rollback()
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS matches (
-                id SERIAL PRIMARY KEY,
-                home_team VARCHAR(50), away_team VARCHAR(50),
-                home_score INT DEFAULT 0, away_score INT DEFAULT 0,
-                is_live BOOLEAN DEFAULT TRUE
+                id SERIAL PRIMARY KEY, home_team VARCHAR(50), away_team VARCHAR(50),
+                home_score INT DEFAULT 0, away_score INT DEFAULT 0, is_live BOOLEAN DEFAULT TRUE
             )
         """)
-        
-        # Init matchs si vide
         cur.execute("SELECT COUNT(*) FROM matches")
         if cur.fetchone()[0] == 0:
             matches_data = [("PSG", "Marseille"), ("Real Madrid", "Barcelone"), ("Bayern", "Dortmund")]
             for home, away in matches_data:
                 cur.execute("INSERT INTO matches (home_team, away_team) VALUES (%s, %s)", (home, away))
-        
         conn.commit()
         cur.close()
         conn.close()
     asyncio.create_task(simulate_live_scores())
 
-# --- ROUTES INTELLIGENTES ---
+# --- ROUTES ---
 
 @app.get("/")
-def read_root():
-    return {"status": "API Foot En Ligne"}
+def read_root(): return {"status": "API Foot En Ligne"}
 
 @app.get("/api/messages")
 def get_messages():
     conn = get_db_connection()
     if not conn: return []
     cur = conn.cursor()
-    # On récupère le contenu ET le sentiment
-    cur.execute("SELECT content, sentiment FROM messages ORDER BY id DESC")
+    # On récupère l'ID aussi pour pouvoir supprimer !
+    cur.execute("SELECT id, content, sentiment FROM messages ORDER BY id DESC")
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    # On renvoie une liste d'objets structurés pour le frontend
-    return [{"content": row[0], "sentiment": row[1]} for row in rows]
+    return [{"id": row[0], "content": row[1], "sentiment": row[2]} for row in rows]
 
 @app.post("/api/messages")
 def create_message(msg: Message):
-    # 1. ANALYSE NLP ICI 
-    blob = TextBlob(msg.content)
-    sentiment_score = blob.sentiment.polarity # Entre -1 (Négatif) et 1 (Positif)
-    
+    score = analyze_sentiment(msg.content) # Utilisation de notre fonction hybride
     conn = get_db_connection()
     if not conn: raise HTTPException(500, "DB Error")
     cur = conn.cursor()
-    cur.execute("INSERT INTO messages (content, sentiment) VALUES (%s, %s)", (msg.content, sentiment_score))
+    cur.execute("INSERT INTO messages (content, sentiment) VALUES (%s, %s)", (msg.content, score))
     conn.commit()
     cur.close()
     conn.close()
-    return {"message": "OK", "sentiment": sentiment_score}
+    return {"message": "OK"}
+
+# NOUVELLE ROUTE : SUPPRESSION
+@app.delete("/api/messages/{message_id}")
+def delete_message(message_id: int):
+    conn = get_db_connection()
+    if not conn: raise HTTPException(500, "DB Error")
+    cur = conn.cursor()
+    cur.execute("DELETE FROM messages WHERE id = %s", (message_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return Response(status_code=204) # 204 = No Content (Succès sans contenu)
 
 @app.get("/api/matches")
 def get_matches():

@@ -59,4 +59,4 @@ jobs:
           context: ./frontend
           push: true
           # J'ai passé le tag à 'latest' pour simplifier la gestion dans Kubernetes
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:v5.4
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:v5.5

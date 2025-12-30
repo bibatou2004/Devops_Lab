@@ -10,16 +10,12 @@ function App() {
   const fetchData = () => {
     fetch(`${API_URL}/messages`)
       .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        if(Array.isArray(data)) setMessages(data);
-      })
+      .then(data => { if(Array.isArray(data)) setMessages(data); })
       .catch(console.error);
 
     fetch(`${API_URL}/matches`)
       .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        if(Array.isArray(data)) setMatches(data);
-      })
+      .then(data => { if(Array.isArray(data)) setMatches(data); })
       .catch(console.error);
   };
 
@@ -42,13 +38,22 @@ function App() {
     });
   };
 
-  // Fonction pour transformer le score mathématique en Emoji
+  // --- NOUVELLE FONCTION DE SUPPRESSION ---
+  const handleDelete = (id) => {
+    fetch(`${API_URL}/messages/${id}`, {
+      method: 'DELETE',
+    }).then(() => {
+      // On retire le message de la liste locale tout de suite (effet instantané)
+      setMessages(messages.filter(msg => msg.id !== id));
+    });
+  };
+
   const getSentimentEmoji = (score) => {
-    if (score > 0.3) return "🤩"; // Très positif
-    if (score > 0) return "🙂";   // Positif
-    if (score < -0.3) return "🤬"; // Très négatif
-    if (score < 0) return "🙁";   // Négatif
-    return "😐"; // Neutre
+    if (score >= 0.5) return "🤩";
+    if (score > 0) return "🙂";
+    if (score <= -0.5) return "🤬";
+    if (score < 0) return "🙁";
+    return "😐";
   };
 
   return (
@@ -79,7 +84,7 @@ function App() {
               type="text" 
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Ex: Quel match incroyable ! ou L'arbitre est nul !"
+              placeholder="Ex: Victoire ! ou Quel match nul..."
               className="message-input"
             />
             <button type="submit" className="send-button">Analyser</button>
@@ -87,11 +92,21 @@ function App() {
         </section>
 
         <div className="news-grid">
-          {messages.map((msg, index) => (
-            <div key={index} className="news-card" style={{borderLeft: `5px solid ${msg.sentiment > 0 ? '#2ecc71' : (msg.sentiment < 0 ? '#e74c3c' : '#95a5a6')}`}}>
+          {messages.map((msg) => (
+            <div key={msg.id} className="news-card" style={{borderLeft: `5px solid ${msg.sentiment > 0 ? '#2ecc71' : (msg.sentiment < 0 ? '#e74c3c' : '#95a5a6')}`}}>
               <div className="card-body" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <p style={{margin:0}}>{msg.content}</p>
-                <span style={{fontSize:'1.5rem'}} title={`Score NLP: ${msg.sentiment}`}>{getSentimentEmoji(msg.sentiment)}</span>
+                <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                   <span style={{fontSize:'1.5rem'}}>{getSentimentEmoji(msg.sentiment)}</span>
+                   <p style={{margin:0, fontWeight:'500'}}>{msg.content}</p>
+                </div>
+                {/* BOUTON SUPPRIMER */}
+                <button 
+                  onClick={() => handleDelete(msg.id)}
+                  style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'1.2rem'}}
+                  title="Supprimer le message"
+                >
+                  🗑️
+                </button>
               </div>
             </div>
           ))}
