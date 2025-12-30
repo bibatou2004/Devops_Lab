@@ -11,4 +11,5 @@ def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "API en ligne"
+    # CORRECTION ICI : On met le nouveau message attendu
+    assert data["status"] == "API Foot En Ligne"
