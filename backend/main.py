@@ -2,9 +2,11 @@ import os
 import asyncio
 import random
 import psycopg2
+import logging
+import sys
+import time
 from datetime import datetime, timedelta
 from typing import Optional, List
-import time
 
 from fastapi import FastAPI, HTTPException, Response, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -13,6 +15,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from textblob import TextBlob
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+
+# --- CONFIGURATION LOGGING (CRITIQUE POUR DEBUG K8S) ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -23,7 +33,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# CORRECTION 1 : On pointe bien vers /api/token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
 app.add_middleware(
@@ -67,7 +76,9 @@ class Token(BaseModel):
 def get_db_connection():
     try:
         return psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
-    except: return None
+    except Exception as e:
+        logger.error(f"❌ Erreur de connexion DB: {e}")
+        return None
 
 # --- SYSTÈME DE SENTIMENTS ---
 FRENCH_SENTIMENTS = {
@@ -111,16 +122,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
 
-# --- STARTUP : MIGRATION DB (AVEC RETRY) ---
+# --- STARTUP : MIGRATION DB ---
 @app.on_event("startup")
 async def startup_event():
+    logger.info("🚀 Démarrage de l'application - Tentative connexion BDD...")
     while True:
         try:
             conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
-            print("✅ Connexion à la Base de Données réussie !")
+            logger.info("✅ Connexion à la Base de Données réussie !")
             break
         except psycopg2.OperationalError:
-            print("⏳ La base de données n'est pas encore prête... Nouvelle tentative dans 2 secondes.")
+            logger.warning("⏳ La base de données n'est pas encore prête... Nouvelle tentative dans 2 secondes.")
             time.sleep(2)
     
     cur = conn.cursor()
@@ -156,7 +168,7 @@ async def startup_event():
     # Création Admin par défaut
     cur.execute("SELECT COUNT(*) FROM users")
     if cur.fetchone()[0] == 0:
-        print("👤 Création de l'utilisateur Admin par défaut...")
+        logger.info("👤 Création de l'utilisateur Admin par défaut...")
         admin_pass = get_password_hash("admin123")
         cur.execute("INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)", 
                     ("admin", admin_pass, "admin"))
@@ -174,26 +186,53 @@ async def startup_event():
     
     asyncio.create_task(simulate_live_scores())
 
-# --- ROUTE AUTHENTIFICATION ---
+# --- ROUTE INSCRIPTION (DEBUGGÉE) ---
 
 @app.post("/api/register")
 def register(user: UserCreate):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        logger.info(f"📝 REGISTER: Tentative d'inscription pour '{user.username}'")
+        
         hashed_pw = get_password_hash(user.password)
+        
+        # Exécution de la requête
         cur.execute("INSERT INTO users (username, password_hash, role) VALUES (%s, %s, 'user')", 
                     (user.username, hashed_pw))
+        
         conn.commit()
-    except psycopg2.IntegrityError:
+        logger.info(f"✅ REGISTER: Succès pour '{user.username}'")
+        
+    except psycopg2.IntegrityError as e:
         conn.rollback()
-        raise HTTPException(status_code=400, detail="Username already registered")
+        real_error = str(e) # On capture le message exact de Postgres
+        logger.error(f"❌ REGISTER ERROR (SQL): {real_error}")
+        
+        # Si c'est vraiment le username qui est pris
+        if "unique constraint" in real_error and "username" in real_error:
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        # Si c'est le problème d'ID (PrimaryKey)
+        elif "pkey" in real_error:
+            raise HTTPException(status_code=500, detail="Erreur interne (ID Sequence). Regardez les logs serveur.")
+            
+        # Autre erreur SQL
+        else:
+            raise HTTPException(status_code=500, detail=f"Database Integrity Error: {real_error}")
+            
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"❌ REGISTER ERROR (Python): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+        
     finally:
         cur.close()
         conn.close()
     return {"message": "User created successfully"}
 
-# CORRECTION 2 : On écoute sur /api/token
+# --- ROUTE LOGIN ---
+
 @app.post("/api/token", response_model=Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_db_connection()
@@ -203,13 +242,14 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     cur.close()
     conn.close()
 
+    # NOTE IMPORTANTE : user[2] est bien le hash, user[3] est le role
     if not user or not verify_password(form_data.password, user[2]):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
     access_token = create_access_token(data={"sub": user[1], "role": user[3], "id": user[0]})
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- ROUTES MESSAGES SÉCURISÉES ---
+# --- ROUTES MESSAGES ---
 
 @app.get("/api/messages", response_model=List[MessageOut])
 def get_messages():
