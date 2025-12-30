@@ -9,3 +9,4 @@ passlib[bcrypt]
 python-jose
 python-multipart
 pydantic
+bcrypt==4.0.1
