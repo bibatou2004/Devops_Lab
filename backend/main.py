@@ -113,11 +113,15 @@ def get_messages():
     conn = get_db_connection()
     if not conn: return []
     cur = conn.cursor()
-    # On récupère l'ID aussi pour pouvoir supprimer !
+    
+    # CORRECTION CRITIQUE : On sélectionne explicitement l'ID
     cur.execute("SELECT id, content, sentiment FROM messages ORDER BY id DESC")
     rows = cur.fetchall()
+    
     cur.close()
     conn.close()
+    
+    # On renvoie un objet complet avec l'ID
     return [{"id": row[0], "content": row[1], "sentiment": row[2]} for row in rows]
 
 @app.post("/api/messages")

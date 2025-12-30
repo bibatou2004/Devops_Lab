@@ -92,21 +92,25 @@ function App() {
         </section>
 
         <div className="news-grid">
-          {messages.map((msg) => (
-            <div key={msg.id} className="news-card" style={{borderLeft: `5px solid ${msg.sentiment > 0 ? '#2ecc71' : (msg.sentiment < 0 ? '#e74c3c' : '#95a5a6')}`}}>
+          {messages.map((msg, index) => (
+            // Sécurité : Si pas d'ID, on utilise l'index (évite l'écran blanc)
+            <div key={msg.id || index} className="news-card" style={{borderLeft: `5px solid ${msg.sentiment > 0 ? '#2ecc71' : (msg.sentiment < 0 ? '#e74c3c' : '#95a5a6')}`}}>
               <div className="card-body" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
                    <span style={{fontSize:'1.5rem'}}>{getSentimentEmoji(msg.sentiment)}</span>
                    <p style={{margin:0, fontWeight:'500'}}>{msg.content}</p>
                 </div>
-                {/* BOUTON SUPPRIMER */}
-                <button 
-                  onClick={() => handleDelete(msg.id)}
-                  style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'1.2rem'}}
-                  title="Supprimer le message"
-                >
-                  🗑️
-                </button>
+                
+                {/* CORRECTION : On n'affiche le bouton que si l'ID existe vraiment */}
+                {msg.id && (
+                  <button 
+                    onClick={() => handleDelete(msg.id)}
+                    style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'1.2rem'}}
+                    title="Supprimer le message"
+                  >
+                    🗑️
+                  </button>
+                )}
               </div>
             </div>
           ))}
