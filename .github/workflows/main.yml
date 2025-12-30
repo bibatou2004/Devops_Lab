@@ -2,35 +2,37 @@ name: CI Pipeline Football News
 
 on:
   push:
-    branches: [ "main" ]
+    # On ajoute ta branche de travail pour tester immédiatement
+    branches: [ "main", "refactor-backend" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  # Étape 1 : Tests Unitaires
+  # Étape 1 : Tests Unitaires (Backend Python)
   test-backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          node-version: '18'
+          python-version: '3.9' # Cohérent avec le Dockerfile
           
       - name: Install dependencies
         run: |
           cd backend
-          npm install
+          pip install -r requirements.txt
           
       - name: Run Backend Tests
         run: |
           cd backend
-          npm test
+          pytest
 
   # Étape 2 : Build et Push des images Docker
   build-and-push:
     needs: test-backend
+    # On ne lance le build/push que si les tests sont passés
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -42,6 +44,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build Backend (Python)
       - name: Build and push Backend
         uses: docker/build-push-action@v4
         with:
@@ -49,9 +52,11 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-backend:latest 
 
+      # Build Frontend (React)
       - name: Build and push Frontend
         uses: docker/build-push-action@v4
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:v4
+          # J'ai passé le tag à 'latest' pour simplifier la gestion dans Kubernetes
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/foot-frontend:latest
