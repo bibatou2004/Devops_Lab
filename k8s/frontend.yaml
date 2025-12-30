@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: noun25/foot-frontend:v5.8 # Pense à incrémenter ta version (ex: v4) après le rebuild !
+        image: noun25/foot-frontend:v5.9 # Pense à incrémenter ta version (ex: v4) après le rebuild !
         imagePullPolicy: Always
         ports:
         - containerPort: 80

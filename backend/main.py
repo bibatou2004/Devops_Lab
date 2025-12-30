@@ -4,6 +4,7 @@ import random
 import psycopg2
 from datetime import datetime, timedelta
 from typing import Optional, List
+import time
 
 from fastapi import FastAPI, HTTPException, Response, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -12,7 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from textblob import TextBlob
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-import time
 
 app = FastAPI()
 
@@ -22,7 +22,9 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# CORRECTION 1 : On pointe bien vers /api/token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,27 +41,23 @@ DB_PASS = os.getenv("DB_PASS", "password")
 
 # --- MODÈLES DE DONNÉES (Pydantic) ---
 
-# Modèle pour l'inscription
 class UserCreate(BaseModel):
     username: str
     password: str
 
-# Modèle pour l'affichage utilisateur (sans mot de passe !)
 class UserOut(BaseModel):
     id: int
     username: str
-    role: str # 'user' ou 'admin'
+    role: str
 
-# Modèle pour créer un message
 class MessageCreate(BaseModel):
     content: str
 
-# Modèle pour afficher un message (avec l'auteur)
 class MessageOut(BaseModel):
     id: int
     content: str
     sentiment: float
-    username: str  # Nom de l'auteur
+    username: str
 
 class Token(BaseModel):
     access_token: str
@@ -71,7 +69,7 @@ def get_db_connection():
         return psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
     except: return None
 
-# --- SYSTÈME DE SENTIMENTS (Ton code original) ---
+# --- SYSTÈME DE SENTIMENTS ---
 FRENCH_SENTIMENTS = {
     "victoire": 0.9, "gagne": 0.8, "bravo": 0.8, "super": 0.8, "goooal": 1.0, "but": 0.7, "bien": 0.6,
     "nul": -0.8, "perdu": -0.9, "honte": -1.0, "triste": -0.7, "mauvais": -0.8, "defaite": -0.9, "ennui": -0.5
@@ -97,7 +95,6 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # --- DÉPENDANCE : RÉCUPÉRER L'UTILISATEUR CONNECTÉ ---
-# C'est cette fonction qui protège les routes
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -114,20 +111,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
 
-# --- STARTUP : MIGRATION DB ---
+# --- STARTUP : MIGRATION DB (AVEC RETRY) ---
 @app.on_event("startup")
 async def startup_event():
-    # BOUCLE DE RETRY : On attend que la DB soit prête
     while True:
         try:
             conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
             print("✅ Connexion à la Base de Données réussie !")
-            break # On sort de la boucle si ça marche
+            break
         except psycopg2.OperationalError:
             print("⏳ La base de données n'est pas encore prête... Nouvelle tentative dans 2 secondes.")
             time.sleep(2)
     
-    # Une fois connecté, on crée les tables
     cur = conn.cursor()
     
     # 1. Table Utilisateurs
@@ -177,7 +172,6 @@ async def startup_event():
     cur.close()
     conn.close()
     
-    # On lance la simulation
     asyncio.create_task(simulate_live_scores())
 
 # --- ROUTE AUTHENTIFICATION ---
@@ -188,7 +182,6 @@ def register(user: UserCreate):
     cur = conn.cursor()
     try:
         hashed_pw = get_password_hash(user.password)
-        # Le premier inscrit devient admin (optionnel, pour faciliter tes tests) ou juste 'user'
         cur.execute("INSERT INTO users (username, password_hash, role) VALUES (%s, %s, 'user')", 
                     (user.username, hashed_pw))
         conn.commit()
@@ -200,7 +193,8 @@ def register(user: UserCreate):
         conn.close()
     return {"message": "User created successfully"}
 
-@app.post("/token", response_model=Token)
+# CORRECTION 2 : On écoute sur /api/token
+@app.post("/api/token", response_model=Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -209,10 +203,9 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     cur.close()
     conn.close()
 
-    if not user or not verify_password(form_data.password, user[3]): # user[3] est le hash
+    if not user or not verify_password(form_data.password, user[3]):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
-    # On met les infos utiles dans le token
     access_token = create_access_token(data={"sub": user[1], "role": user[3], "id": user[0]})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -222,7 +215,6 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
 def get_messages():
     conn = get_db_connection()
     cur = conn.cursor()
-    # Jointure pour récupérer le nom de l'auteur
     query = """
         SELECT m.id, m.content, m.sentiment, u.username 
         FROM messages m 
@@ -237,7 +229,6 @@ def get_messages():
 
 @app.post("/api/messages")
 def create_message(msg: MessageCreate, current_user: dict = Depends(get_current_user)):
-    # Ici, current_user est garanti d'exister grâce à Depends()
     score = analyze_sentiment(msg.content)
     conn = get_db_connection()
     cur = conn.cursor()
@@ -252,8 +243,6 @@ def create_message(msg: MessageCreate, current_user: dict = Depends(get_current_
 def delete_message(message_id: int, current_user: dict = Depends(get_current_user)):
     conn = get_db_connection()
     cur = conn.cursor()
-    
-    # Vérification : Admin OU propriétaire du message
     cur.execute("SELECT user_id FROM messages WHERE id = %s", (message_id,))
     result = cur.fetchone()
     
@@ -274,7 +263,7 @@ def delete_message(message_id: int, current_user: dict = Depends(get_current_use
         conn.close()
         raise HTTPException(403, "Not authorized to delete this message")
 
-# --- ROUTE PROMOTION ADMIN (Bonus) ---
+# --- ROUTE PROMOTION ADMIN ---
 @app.put("/api/users/{username}/promote")
 def promote_user(username: str, current_user: dict = Depends(get_current_user)):
     if current_user['role'] != 'admin':
@@ -288,7 +277,7 @@ def promote_user(username: str, current_user: dict = Depends(get_current_user)):
     conn.close()
     return {"message": f"{username} is now admin"}
 
-# --- ROUTES MATCHS (Publiques) ---
+# --- ROUTES MATCHS ---
 @app.get("/api/matches")
 def get_matches():
     conn = get_db_connection()
@@ -303,7 +292,6 @@ def get_matches():
     conn.close()
     return results
 
-# --- FONCTION SIMULATION (Ton code original) ---
 async def simulate_live_scores():
     while True:
         await asyncio.sleep(10)
