@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from textblob import TextBlob
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+import time
 
 app = FastAPI()
 
@@ -116,59 +117,68 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 # --- STARTUP : MIGRATION DB ---
 @app.on_event("startup")
 async def startup_event():
-    conn = get_db_connection()
-    if conn:
-        cur = conn.cursor()
-        
-        # 1. Table Utilisateurs
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                role VARCHAR(20) DEFAULT 'user'
-            )
-        """)
-        
-        # 2. Table Messages (modifiée pour inclure user_id)
-        # Note: Si la table existe déjà sans user_id, cela pourrait causer une erreur.
-        # Pour ce projet, le plus simple est de DROPPÉ la table manuellement ou de gérer la migration.
-        # Ici, je recrée si elle n'existe pas, et j'ajoute la colonne si manquante.
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY, 
-                content TEXT NOT NULL, 
-                sentiment FLOAT DEFAULT 0.0,
-                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
-            )
-        """)
-        
-        # 3. Table Matchs (Inchangé)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS matches (
-                id SERIAL PRIMARY KEY, home_team VARCHAR(50), away_team VARCHAR(50),
-                home_score INT DEFAULT 0, away_score INT DEFAULT 0, is_live BOOLEAN DEFAULT TRUE
-            )
-        """)
+    # BOUCLE DE RETRY : On attend que la DB soit prête
+    while True:
+        try:
+            conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
+            print("✅ Connexion à la Base de Données réussie !")
+            break # On sort de la boucle si ça marche
+        except psycopg2.OperationalError:
+            print("⏳ La base de données n'est pas encore prête... Nouvelle tentative dans 2 secondes.")
+            time.sleep(2)
+    
+    # Une fois connecté, on crée les tables
+    cur = conn.cursor()
+    
+    # 1. Table Utilisateurs
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(20) DEFAULT 'user'
+        )
+    """)
+    
+    # 2. Table Messages
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY, 
+            content TEXT NOT NULL, 
+            sentiment FLOAT DEFAULT 0.0,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        )
+    """)
+    
+    # 3. Table Matchs
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS matches (
+            id SERIAL PRIMARY KEY, home_team VARCHAR(50), away_team VARCHAR(50),
+            home_score INT DEFAULT 0, away_score INT DEFAULT 0, is_live BOOLEAN DEFAULT TRUE
+        )
+    """)
 
-        # Création d'un Admin par défaut si aucun user n'existe
-        cur.execute("SELECT COUNT(*) FROM users")
-        if cur.fetchone()[0] == 0:
-            admin_pass = get_password_hash("admin123")
-            cur.execute("INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)", 
-                        ("admin", admin_pass, "admin"))
+    # Création Admin par défaut
+    cur.execute("SELECT COUNT(*) FROM users")
+    if cur.fetchone()[0] == 0:
+        print("👤 Création de l'utilisateur Admin par défaut...")
+        admin_pass = get_password_hash("admin123")
+        cur.execute("INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)", 
+                    ("admin", admin_pass, "admin"))
 
-        # Création des matchs par défaut
-        cur.execute("SELECT COUNT(*) FROM matches")
-        if cur.fetchone()[0] == 0:
-            matches_data = [("PSG", "Marseille"), ("Real Madrid", "Barcelone")]
-            for home, away in matches_data:
-                cur.execute("INSERT INTO matches (home_team, away_team) VALUES (%s, %s)", (home, away))
+    # Création Matchs par défaut
+    cur.execute("SELECT COUNT(*) FROM matches")
+    if cur.fetchone()[0] == 0:
+        matches_data = [("PSG", "Marseille"), ("Real Madrid", "Barcelone")]
+        for home, away in matches_data:
+            cur.execute("INSERT INTO matches (home_team, away_team) VALUES (%s, %s)", (home, away))
 
-        conn.commit()
-        cur.close()
-        conn.close()
-    asyncio.create_task(simulate_live_scores()) # Ta fonction de simulation (gardée en bas)
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    # On lance la simulation
+    asyncio.create_task(simulate_live_scores())
 
 # --- ROUTE AUTHENTIFICATION ---
 
