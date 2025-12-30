@@ -17,6 +17,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
 
+  // Nginx redirige /api vers ton backend, donc API_URL sert de préfixe
   const API_URL = '/api';
 
   // --- 1. GESTION DE L'AUTHENTIFICATION ---
@@ -49,7 +50,10 @@ function App() {
 
     } else {
       // INSCRIPTION (Register)
-      fetch(`${API_URL}/api/register`, {
+      // --- CORRECTION ICI : On a retiré le "/api" en trop ---
+      // Avant : `${API_URL}/api/register` (donnait /api/api/register)
+      // Après : `${API_URL}/register`     (donne /api/register)
+      fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -236,8 +240,8 @@ function App() {
               </div>
 
               <div className="card-body" style={{display:'flex', alignItems:'center', gap:'10px'}}>
-                 <span style={{fontSize:'1.5rem'}}>{getSentimentEmoji(msg.sentiment)}</span>
-                 <p style={{margin:0, fontWeight:'500'}}>{msg.content}</p>
+                  <span style={{fontSize:'1.5rem'}}>{getSentimentEmoji(msg.sentiment)}</span>
+                  <p style={{margin:0, fontWeight:'500'}}>{msg.content}</p>
               </div>
             </div>
           ))}
