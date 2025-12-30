@@ -2,33 +2,56 @@ import React, { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
+  // On initialise avec des tableaux vides pour éviter le crash "undefined"
   const [messages, setMessages] = useState([]);
-  const [matches, setMatches] = useState([]); // Nouvel état pour les scores
+  const [matches, setMatches] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   
   const API_URL = '/api';
 
   const fetchData = () => {
-    // 1. Charger les messages
+    // 1. Charger les messages (Sécurisé)
     fetch(`${API_URL}/messages`)
-      .then(res => res.json())
-      .then(data => setMessages(data))
+      .then(res => {
+        if (!res.ok) throw new Error("Erreur réseau messages");
+        return res.json();
+      })
+      .then(data => {
+        // PROTECTION : Si ce n'est pas un tableau, on met un tableau vide
+        if (Array.isArray(data)) {
+          setMessages(data);
+        } else {
+          console.error("Format messages invalide:", data);
+          setMessages([]);
+        }
+      })
       .catch(err => console.error("Erreur messages:", err));
 
-    // 2. Charger les scores en direct
+    // 2. Charger les scores (Sécurisé)
     fetch(`${API_URL}/matches`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Erreur réseau matches");
+        return res.json();
+      })
       .then(data => {
-        setMatches(data);
+        // PROTECTION CRITIQUE ICI : C'est souvent là que ça plante
+        if (Array.isArray(data)) {
+          setMatches(data);
+        } else {
+          console.error("Format matches invalide (Probablement une erreur 500):", data);
+          setMatches([]); 
+        }
         setLoading(false);
       })
-      .catch(err => console.error("Erreur matches:", err));
+      .catch(err => {
+        console.error("Erreur matches:", err);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
     fetchData();
-    // 3. AUTO-REFRESH : On recharge les données toutes les 3 secondes !
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
@@ -52,22 +75,27 @@ function App() {
         <h1>⚽ Foot Reporting Live</h1>
       </header>
 
-      {/* --- NOUVEAU : LE SCOREBOARD --- */}
+      {/* --- SCOREBOARD --- */}
       <section className="scoreboard">
         <h2>🔴 En Direct des Stades</h2>
         <div className="matches-grid">
-          {matches.map(match => (
-            <div key={match.id} className="match-card">
-              <div className="team home">{match.home_team}</div>
-              <div className="score">
-                <span className="score-number">{match.home_score}</span>
-                <span className="separator">-</span>
-                <span className="score-number">{match.away_score}</span>
+          {/* PROTECTION : On vérifie match && match.id pour éviter les objets vides */}
+          {matches.length > 0 ? (
+            matches.map(match => (
+              <div key={match.id} className="match-card">
+                <div className="team home">{match.home_team}</div>
+                <div className="score">
+                  <span className="score-number">{match.home_score}</span>
+                  <span className="separator">-</span>
+                  <span className="score-number">{match.away_score}</span>
+                </div>
+                <div className="team away">{match.away_team}</div>
+                {match.is_live && <div className="live-indicator">LIVE</div>}
               </div>
-              <div className="team away">{match.away_team}</div>
-              {match.is_live && <div className="live-indicator">LIVE</div>}
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="no-matches">Chargement des scores ou aucun match en cours...</div>
+          )}
         </div>
       </section>
 
@@ -87,11 +115,15 @@ function App() {
         </section>
 
         <div className="news-grid">
-          {messages.map((msg, index) => (
-            <div key={index} className="news-card">
-              <p>{msg}</p>
-            </div>
-          ))}
+          {messages.length > 0 ? (
+            messages.map((msg, index) => (
+              <div key={index} className="news-card">
+                <p>{msg}</p>
+              </div>
+            ))
+          ) : (
+            <div className="no-news">Aucun message.</div>
+          )}
         </div>
       </main>
     </div>
