@@ -16,7 +16,7 @@ from jose import JWTError, jwt
 app = FastAPI()
 
 # --- SÉCURITÉ & CONFIGURATION ---
-SECRET_KEY = "mon_secret_super_securise_pour_le_projet_esiee" # À changer en prod
+SECRET_KEY = "codeultrasecretdemonsite"  
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
