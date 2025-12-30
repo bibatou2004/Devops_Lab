@@ -2,56 +2,94 @@ import React, { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
-  const [news, setNews] = useState([]);
-  // 1. On ajoute un état pour savoir si ça charge vraiment
-  const [loading, setLoading] = useState(true); 
-  const API_URL = '/api';
+  // On stocke une liste de textes simples, pas d'objets complexes
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState(""); // Pour le formulaire d'ajout
+  const [loading, setLoading] = useState(true);
+  
+  // URL relative : Nginx (dans Docker/K8s) se chargera de rediriger /api vers le backend
+  const API_URL = '/api/messages';
 
-  useEffect(() => {
-    fetch(`${API_URL}/news`)
+  // Fonction pour charger les messages (READ)
+  const fetchMessages = () => {
+    setLoading(true);
+    fetch(API_URL)
       .then(res => res.json())
       .then(data => {
-        setNews(data);
-        setLoading(false); // 2. Succès : on arrête le chargement
+        setMessages(data);
+        setLoading(false);
       })
       .catch(err => {
-        console.error("Erreur backend:", err);
-        setLoading(false); // 3. Erreur : on arrête le chargement aussi (sinon ça bloque)
+        console.error("Erreur de connexion:", err);
+        setLoading(false);
       });
-  }, [API_URL]);
+  };
+
+  // Charger les données au démarrage
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+
+  // Fonction pour ajouter un message (WRITE)
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return; // On n'envoie pas de vide
+
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: newMessage }) // Format attendu par le Pydantic Python
+    })
+    .then(res => res.json())
+    .then(() => {
+      setNewMessage(""); // Vider le champ
+      fetchMessages();   // Recharger la liste pour voir le nouveau message
+    })
+    .catch(err => console.error("Erreur d'envoi:", err));
+  };
 
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>⚽ Foot Reporting News</h1>
-        <p>Toute l'actualité du ballon rond en direct</p>
+        <h1>⚽ Foot Reporting - Espace Supporter</h1>
+        <p>Projet DevOps - Architecture Microservices</p>
       </header>
 
       <main className="news-container">
-        {/* 4. On vérifie d'abord si ça charge */}
+        
+        {/* --- ZONE D'AJOUT (WRITE) --- */}
+        <section className="input-section">
+          <form onSubmit={handleSubmit} className="message-form">
+            <input 
+              type="text" 
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Écrire un message..."
+              className="message-input"
+            />
+            <button type="submit" className="send-button">Envoyer</button>
+          </form>
+        </section>
+
+        <hr className="divider"/>
+
+        {/* --- ZONE D'AFFICHAGE (READ) --- */}
         {loading ? (
-          <div className="loading">Chargement des news...</div>
+          <div className="loading">Chargement des messages...</div>
         ) : (
-          /* 5. Une fois chargé, on vérifie s'il y a des news OU si c'est vide */
-          news.length > 0 ? (
+          messages.length > 0 ? (
             <div className="news-grid">
-              {news.map(item => (
-                <div key={item.id} className="news-card">
-                  <div className="card-header">
-                    <span className="tag">Flash Info</span>
-                  </div>
+              {messages.map((msg, index) => (
+                // On utilise l'index comme clé car c'est une liste simple
+                <div key={index} className="news-card">
                   <div className="card-body">
-                    <h3>{item.title}</h3>
-                    <p>{item.content}</p>
-                  </div>
-                  <div className="card-footer">
-                    <small>Publié le {new Date().toLocaleDateString()}</small>
+                    <p>{msg}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="no-news">Aucune news disponible pour le moment.</div>
+            <div className="no-news">Aucun message. Soyez le premier à poster !</div>
           )
         )}
       </main>

@@ -3,8 +3,12 @@ from main import app
 
 client = TestClient(app)
 
-def test_read_main():
-    # Ce test vérifie que l'API répond bien 200 (OK)
+def test_read_root():
+    """
+    Vérifie que la route racine répond 200 (OK)
+    et retourne le bon status.
+    """
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"Status": "Active", "Version": "1.0.0"}
+    data = response.json()
+    assert data["status"] == "API en ligne"

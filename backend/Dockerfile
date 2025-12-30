@@ -1,20 +1,18 @@
-# Utilisation d'une image légère de Node.js (pratique standard DevOps)
-FROM node:18-alpine
+# Image de base légère (Debian slim)
+FROM python:3.9-slim
 
 # Dossier de travail dans le conteneur
 WORKDIR /app
 
-# Copie des fichiers de dépendances
-COPY package*.json ./
-
-# Installation des dépendances (sans les outils de test pour alléger l'image de prod)
-RUN npm install --production
+# Installation des dépendances (en cache si inchangées)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copie du reste du code
 COPY . .
 
-# L'API tourne sur le port 3000
-EXPOSE 3000
+# Port standard FastAPI
+EXPOSE 8000
 
-# Commande de démarrage
-CMD ["node", "server.js"]
+# Commande de lancement
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
