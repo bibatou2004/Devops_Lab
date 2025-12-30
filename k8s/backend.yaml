@@ -16,7 +16,14 @@ spec:
       - name: backend
         image: noun25/foot-backend:latest
         imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
         env:
+        # --- CORRECTION CRITIQUE : FORCE L'AFFICHAGE DES LOGS ---
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        
+        # --- CONFIGURATION BDD ---
         - name: DB_HOST
           value: "postgres"
         - name: DB_USER
@@ -34,10 +41,11 @@ spec:
             secretKeyRef:
               name: foot-secrets
               key: postgres-db
+        
+        # (Optionnel) Utile si tu passes un jour sur un ORM comme SQLAlchemy
         - name: DATABASE_URL
           value: "postgresql://$(DB_USER):$(DB_PASS)@postgres:5432/$(DB_NAME)"
-        ports:
-        - containerPort: 8000
+
 ---
 apiVersion: v1
 kind: Service

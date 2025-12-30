@@ -203,7 +203,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     cur.close()
     conn.close()
 
-    if not user or not verify_password(form_data.password, user[3]):
+    if not user or not verify_password(form_data.password, user[2]):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
     access_token = create_access_token(data={"sub": user[1], "role": user[3], "id": user[0]})
