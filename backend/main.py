@@ -75,10 +75,25 @@ class Token(BaseModel):
 # --- FONCTIONS UTILITAIRES DB ---
 def get_db_connection():
     try:
-        return psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
+        return psycopg2.connect(
+            host=DB_HOST, 
+            database=DB_NAME, 
+            user=DB_USER, 
+            password=DB_PASS,
+            connect_timeout=5  # ✅ Timeout de 5 secondes
+        )
+    except psycopg2.OperationalError as e:
+        logger.error(f"❌ Base de données indisponible: {e}")
+        raise HTTPException(
+            status_code=503, 
+            detail="Database temporarily unavailable. Please try again later."
+        )
     except Exception as e:
-        logger.error(f"❌ Erreur de connexion DB: {e}")
-        return None
+        logger.error(f"❌ Erreur de connexion DB inattendue: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Internal database error"
+        )
 
 # --- SYSTÈME DE SENTIMENTS ---
 FRENCH_SENTIMENTS = {
