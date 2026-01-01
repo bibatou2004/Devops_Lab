@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # --- SÉCURITÉ & CONFIGURATION ---
-SECRET_KEY = "codeultrasecretdemonsite"  
+SECRET_KEY = os.getenv("SECRET_KEY", "cle_par_defaut_si_k8s_echoue")  
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
