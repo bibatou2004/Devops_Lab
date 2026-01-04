@@ -5,6 +5,12 @@ Auteur : Youcef GUEDIRI et Aibatou WANDAOGO Cours : DevOps & Data - ESIEE Paris 
 
 Ce projet est une application micro-services complète déployée sur Kubernetes, permettant de suivre des scores de football en direct et de poster des commentaires analysés par un algorithme de sentiment (NLP).
 
+Une démonstration complète du pipeline CI/CD et de la résilience du projet est disponible ici :
+
+https://drive.google.com/drive/folders/1lNPzXDfRG5_bwutgPVgmhf6P-p0EjwpF?usp=drive_link
+
+
+
 L'objectif pédagogique est de démontrer la maîtrise d'une chaîne DevOps complète : Conteneurisation, Orchestration Kubernetes, Persistance des données et Pipeline CI.
  Architecture Technique
 
@@ -79,7 +85,7 @@ Vérifiez que tous les pods sont en statut Running :
 
 kubectl get pods
 
-    Note : Il est normal que le pod backend redémarre 1 ou 2 fois (Status: CrashLoopBackOff) le temps que PostgreSQL s'initialise complètement. Le code gère ce cas automatiquement.
+    Note : Il est normal si le pod backend redémarre 1 ou 2 fois (Status: CrashLoopBackOff) le temps que PostgreSQL s'initialise complètement. Le code gère ce cas automatiquement.
 
 4. Accéder à l'application (Port-Forwarding)
 

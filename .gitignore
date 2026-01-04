@@ -18,3 +18,5 @@ npm-debug.log*
 
 # --- Kubernetes (Optionnel mais propre) ---
 .kube/
+
+*.mp4
