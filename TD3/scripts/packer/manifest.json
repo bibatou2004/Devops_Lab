@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "name": "amazon_linux_2023",
+      "builder_type": "amazon-ebs",
+      "build_time": 1764867502,
+      "files": null,
+      "artifact_id": "us-east-2:ami-093653d8864441a75",
+      "packer_run_uuid": "b92ae722-9613-5928-62f2-37d15703f2b1",
+      "custom_data": null
+    }
+  ],
+  "last_run_uuid": "b92ae722-9613-5928-62f2-37d15703f2b1"
+}

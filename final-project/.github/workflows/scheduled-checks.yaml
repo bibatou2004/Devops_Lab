@@ -1,0 +1,45 @@
+name: Scheduled Health Checks & Cleanup
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Every hour
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Check pod status
+        run: |
+          echo "=== Checking Pod Status ==="
+          kubectl get pods -A
+          
+          echo "=== Checking Node Status ==="
+          kubectl get nodes
+          
+          echo "=== Checking Resource Usage ==="
+          kubectl top nodes || true
+          kubectl top pods -A || true
+
+      - name: Check failed pods
+        run: |
+          FAILED_PODS=$(kubectl get pods -A --field-selector=status.phase=Failed)
+          if [ ! -z "$FAILED_PODS" ]; then
+            echo "⚠️ Failed pods detected:"
+            echo "$FAILED_PODS"
+          fi
+
+      - name: Clean up completed jobs
+        run: |
+          kubectl delete job --field-selector status.successful=1 -A
+

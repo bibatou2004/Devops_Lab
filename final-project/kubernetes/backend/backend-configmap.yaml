@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: default
+data:
+  DATABASE_HOST: postgres-service
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: devops_db
+  DATABASE_USER: devops_user
+  PYTHONUNBUFFERED: "1"
+  LOG_LEVEL: INFO

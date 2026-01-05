@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # --- Python ---
 __pycache__/
 *.py[cod]
@@ -20,3 +21,24 @@ npm-debug.log*
 .kube/
 
 *.mp4
+=======
+*.pem
+
+# Node modules
+node_modules/
+TD5/scripts/sample-app/node_modules/
+TD4/scripts/sample-app/node_modules/
+
+# Terraform state
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+.terraform/
+
+# Environment files
+.env
+.env.local
+*.tfvars
+!*.tfvars.example
+
+>>>>>>> binome/main

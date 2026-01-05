@@ -1,0 +1,40 @@
+# Node.js
+node_modules/
+npm-debug.log
+package-lock.json
+yarn.lock
+
+# Jest & Coverage
+coverage/
+.coverage
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfplan
+tfplan
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.zip
+
+# Docker
+docker_image_id.txt
+
+# Environment
+.env
+.env.local
+.env.*.local

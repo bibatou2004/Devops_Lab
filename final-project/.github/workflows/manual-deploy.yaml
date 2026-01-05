@@ -1,0 +1,76 @@
+name: Manual Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Docker image tag (default: latest)'
+        required: false
+        default: latest
+      component:
+        description: 'Component to deploy'
+        required: true
+        type: choice
+        options:
+          - all
+          - backend
+          - frontend
+          - database
+
+jobs:
+  manual-deploy:
+    name: Manual Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          if [ "${{ inputs.environment }}" == "staging" ]; then
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
+          else
+            echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > $HOME/.kube/config
+          fi
+          chmod 600 $HOME/.kube/config
+
+      - name: Deploy Database
+        if: ${{ inputs.component == 'all' || inputs.component == 'database' }}
+        run: |
+          echo "Deploying Database..."
+          kubectl apply -f final-project/kubernetes/database/
+
+      - name: Deploy Backend
+        if: ${{ inputs.component == 'all' || inputs.component == 'backend' }}
+        run: |
+          echo "Deploying Backend..."
+          kubectl apply -f final-project/kubernetes/backend/
+          kubectl set image deployment/backend-deployment \
+            backend=docker.io/${{ secrets.DOCKER_USERNAME }}/devops-final-backend:${{ inputs.image_tag }} \
+            -n default
+          kubectl rollout status deployment/backend-deployment -n default --timeout=5m
+
+      - name: Deploy Frontend
+        if: ${{ inputs.component == 'all' || inputs.component == 'frontend' }}
+        run: |
+          echo "Deploying Frontend..."
+          kubectl apply -f final-project/kubernetes/frontend/
+          kubectl set image deployment/frontend-deployment \
+            frontend=docker.io/${{ secrets.DOCKER_USERNAME }}/devops-final-frontend:${{ inputs.image_tag }} \
+            -n default
+          kubectl rollout status deployment/frontend-deployment -n default --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          echo "=== Deployment Status ==="
+          kubectl get all -n default
+

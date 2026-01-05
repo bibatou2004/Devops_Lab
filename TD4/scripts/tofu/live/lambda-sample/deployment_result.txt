@@ -1,0 +1,30 @@
+╔════════════════════════════════════════════════════════════╗
+║  Lambda Function Deployment Result                        ║
+╚════════════════════════════════════════════════════════════╝
+
+Function Name: devops-lab-test-function
+API Endpoint:  http://localhost:8080
+Status:        deployed
+Timestamp:     2025-12-05T13:25:05Z
+
+Environment:
+  Runtime:     nodejs18.x
+  Memory:      128 MB
+  Timeout:     30 seconds
+
+API Gateway Configuration:
+  Protocol:    HTTP
+  Method:      GET
+  Path:        /
+
+Health Check:
+  Endpoint:    http://localhost:8080/
+  Expected:    200 OK
+  Message:     "Hello, World!"
+
+Test Commands:
+  curl http://localhost:8080/
+  curl http://localhost:8080/name/DevOps
+  curl http://localhost:8080/add/5/3
+
+═════════════════════════════════════════════════════════════

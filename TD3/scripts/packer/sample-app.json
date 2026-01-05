@@ -1,0 +1,36 @@
+{
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "ami_name": "sample-app-packer-{{timestamp}}",
+      "ami_description": "Amazon Linux 2 AMI with a Node.js sample app.",
+      "instance_type": "t2.micro",
+      "region": "us-east-2",
+      "source_ami": "ami-0900fe555666598a2",
+      "ssh_username": "ec2-user"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "app.js",
+      "destination": "/home/ec2-user/app.js"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -",
+        "sudo yum install -y nodejs"
+      ],
+      "pause_before": "30s"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo chmod +x /home/ec2-user/app.js",
+        "echo 'Node.js version:' && node --version",
+        "echo 'npm version:' && npm --version"
+      ]
+    }
+  ]
+}

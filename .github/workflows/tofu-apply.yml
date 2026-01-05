@@ -1,0 +1,50 @@
+name: Tofu Apply
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "TD5/scripts/tofu/live/ci-cd-permissions/**"
+      - ".github/workflows/tofu-apply.yml"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  apply:
+    name: "Tofu Apply"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN_APPLY }}
+          role-session-name: apply-${{ github.run_number }}-${{ github.actor }}
+          aws-region: us-east-2
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: Tofu Apply
+        id: apply
+        working-directory: TD5/scripts/tofu/live/ci-cd-permissions
+        run: |
+          tofu init -no-color -input=false
+          tofu apply -no-color -input=false -lock-timeout=60m -auto-approve
+
+      - name: Post apply comment
+        if: always()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number || github.event.number }}
+          body: |
+            ## ✅ `tofu apply` output
+            ```
+            ${{ steps.apply.outputs.stdout }}
+            ```

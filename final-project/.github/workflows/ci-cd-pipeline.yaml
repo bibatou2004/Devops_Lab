@@ -1,0 +1,365 @@
+name: CI/CD Pipeline - Build, Test & Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/devops-final-backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/devops-final-frontend
+  KUBE_NAMESPACE: default
+
+jobs:
+  # ============================================================
+  # Job 1: Backend - Build & Test
+  # ============================================================
+  backend-build-test:
+    name: Backend - Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        working-directory: final-project/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        working-directory: final-project/backend
+        run: |
+          pip install flake8
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run Backend Tests
+        working-directory: final-project/backend
+        run: |
+          pip install pytest pytest-asyncio
+          pytest tests/ -v --tb=short
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: backend-coverage
+          path: final-project/backend/.coverage
+
+  # ============================================================
+  # Job 2: Frontend - Build & Test
+  # ============================================================
+  frontend-build-test:
+    name: Frontend - Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'final-project/frontend/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: final-project/frontend
+        run: npm ci
+
+      - name: Lint code
+        working-directory: final-project/frontend
+        run: npm run lint --if-present
+
+      - name: Build application
+        working-directory: final-project/frontend
+        run: npm run build
+
+      - name: Run tests
+        working-directory: final-project/frontend
+        run: npm test -- --watchAll=false --passWithNoTests
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: frontend-build
+          path: final-project/frontend/build
+
+  # ============================================================
+  # Job 3: Build & Push Docker Images
+  # ============================================================
+  build-push-images:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend-build-test, frontend-build-test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./final-project/backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache,mode=max
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./final-project/frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.FRONTEND_IMAGE }}:buildcache,mode=max
+
+      - name: Image digest
+        run: |
+          echo "Backend image pushed: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
+          echo "Frontend image pushed: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}"
+
+  # ============================================================
+  # Job 4: Security Scanning
+  # ============================================================
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [backend-build-test, frontend-build-test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner on Backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'final-project/backend'
+          format: 'sarif'
+          output: 'trivy-backend.sarif'
+
+      - name: Run Trivy vulnerability scanner on Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'final-project/frontend'
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-*.sarif'
+
+  # ============================================================
+  # Job 5: Deploy to Kubernetes (Staging)
+  # ============================================================
+  deploy-staging:
+    name: Deploy to Staging Kubernetes
+    runs-on: ubuntu-latest
+    needs: [build-push-images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: kubectl cluster-info && kubectl get nodes
+
+      - name: Update deployment images
+        run: |
+          kubectl set image deployment/backend-deployment \
+            backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            -n ${{ env.KUBE_NAMESPACE }}
+          
+          kubectl set image deployment/frontend-deployment \
+            frontend=${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
+            -n ${{ env.KUBE_NAMESPACE }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend-deployment \
+            -n ${{ env.KUBE_NAMESPACE }} --timeout=5m
+          kubectl rollout status deployment/frontend-deployment \
+            -n ${{ env.KUBE_NAMESPACE }} --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          echo "=== Pods Status ==="
+          kubectl get pods -n ${{ env.KUBE_NAMESPACE }}
+          
+          echo "=== Services Status ==="
+          kubectl get svc -n ${{ env.KUBE_NAMESPACE }}
+          
+          echo "=== Deployments Status ==="
+          kubectl get deployments -n ${{ env.KUBE_NAMESPACE }}
+
+  # ============================================================
+  # Job 6: Deploy to Kubernetes (Production)
+  # ============================================================
+  deploy-production:
+    name: Deploy to Production Kubernetes
+    runs-on: ubuntu-latest
+    needs: [build-push-images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://devops-app.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: kubectl cluster-info && kubectl get nodes
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f final-project/kubernetes/database/
+          kubectl apply -f final-project/kubernetes/backend/
+          kubectl apply -f final-project/kubernetes/frontend/
+          kubectl apply -f final-project/kubernetes/ingress.yaml
+
+      - name: Update deployment images
+        run: |
+          kubectl set image deployment/backend-deployment \
+            backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            -n ${{ env.KUBE_NAMESPACE }}
+          
+          kubectl set image deployment/frontend-deployment \
+            frontend=${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
+            -n ${{ env.KUBE_NAMESPACE }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend-deployment \
+            -n ${{ env.KUBE_NAMESPACE }} --timeout=10m
+          kubectl rollout status deployment/frontend-deployment \
+            -n ${{ env.KUBE_NAMESPACE }} --timeout=10m
+
+      - name: Run smoke tests
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 30
+          
+          echo "=== Testing Backend Health ==="
+          kubectl run curl --image=curlimages/curl -i --rm --restart=Never -- \
+            curl -s http://backend-service:8000/health || true
+          
+          echo "=== Testing Frontend Health ==="
+          kubectl run curl --image=curlimages/curl -i --rm --restart=Never -- \
+            curl -s http://frontend-service/health || true
+
+      - name: Post-deployment verification
+        run: |
+          echo "=== Final Deployment Status ==="
+          kubectl get all -n ${{ env.KUBE_NAMESPACE }}
+          
+          echo "=== Pod Logs (Backend) ==="
+          kubectl logs -l app=backend --tail=20 -n ${{ env.KUBE_NAMESPACE }} || true
+          
+          echo "=== Pod Logs (Frontend) ==="
+          kubectl logs -l app=frontend --tail=20 -n ${{ env.KUBE_NAMESPACE }} || true
+
+      - name: Slack Notification - Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "✅ Production Deployment Successful!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment Successful* 🎉\n*Commit:* ${{ github.sha }}\n*Author:* ${{ github.actor }}\n*Branch:* ${{ github.ref }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Slack Notification - Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "❌ Production Deployment Failed!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment Failed* ❌\n*Commit:* ${{ github.sha }}\n*Author:* ${{ github.actor }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+

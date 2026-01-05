@@ -1,0 +1,1 @@
+{"api_name":"devops-lab-test-api","endpoint":"http://localhost:8080","protocol":"HTTP","routes":[{"handler":"index.handler","method":"GET","path":"/"},{"handler":"index.handler","method":"GET","path":"/name/{name}"},{"handler":"index.handler","method":"GET","path":"/add/{a}/{b}"}]}

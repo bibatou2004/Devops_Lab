@@ -1,0 +1,54 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'TD5/scripts/tofu/**'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN_APPLY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+      
+      - name: Terraform Init
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform init
+      
+      - name: Terraform Plan
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform plan -no-color -out=tfplan
+      
+      - name: Terraform Apply
+        run: |
+          cd TD5/scripts/tofu/live/ci-cd-permissions
+          terraform apply -no-color -auto-approve tfplan
+      
+      - name: Upload outputs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-outputs
+          path: TD5/scripts/tofu/live/ci-cd-permissions/terraform.tfstate
+

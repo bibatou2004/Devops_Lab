@@ -1,0 +1,7 @@
+aws_region = "us-east-2"
+github_repo = "bibatou2004/Devops_Lab"
+name = "lambda-sample"
+
+enable_iam_role_for_testing = true
+enable_iam_role_for_plan    = true
+enable_iam_role_for_apply   = true
