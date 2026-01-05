@@ -1,3 +1,27 @@
+<<<<<<< HEAD
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# --- Node.js / React ---
+**/node_modules/
+frontend/build/
+frontend/dist/
+npm-debug.log*
+
+# --- OS / IDE ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- Kubernetes (Optionnel mais propre) ---
+.kube/
+
+*.mp4
+=======
 *.pem
 
 # Node modules
@@ -17,3 +41,4 @@ TD4/scripts/sample-app/node_modules/
 *.tfvars
 !*.tfvars.example
 
+>>>>>>> binome/main

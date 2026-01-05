@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: noun25/foot-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        # --- CORRECTION CRITIQUE : FORCE L'AFFICHAGE DES LOGS ---
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        
+        # --- CONFIGURATION BDD ---
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-user
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: postgres-db
+        
+        # --- AJOUT DE LA CLÉ DE SÉCURITÉ DU SITE ---
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: foot-secrets
+              key: secret-key-site
+              
+        # (Optionnel) Utile si tu passes un jour sur un ORM comme SQLAlchemy
+        - name: DATABASE_URL
+          value: "postgresql://$(DB_USER):$(DB_PASS)@postgres:5432/$(DB_NAME)"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
